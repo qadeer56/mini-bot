@@ -1,0 +1,13 @@
+{
+  "name": "qadeer-ai-bot",
+  "version": "1.0.0",
+  "description": "Qadeer AI WhatsApp Bot",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "latest",
+    "pino": "latest"
+  }
+}
