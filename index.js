@@ -38,7 +38,7 @@ const GEMINI_API_KEY =
 
 // Gemini model
 const GEMINI_MODEL =
-    "gemini-3.1-flash-lite";
+    "gemini-1.5-flash";
 
 // ==========================================
 // GLOBAL VARIABLES
@@ -53,8 +53,6 @@ let sock = null;
 // ==========================================
 // AUTOCHAT MEMORY
 // ==========================================
-
-// Har group ka AutoChat alag hoga
 
 const autoChatGroups =
     new Set();
@@ -131,14 +129,10 @@ Group mein:
 
 async function askGemini(question) {
 
-    // API key check
-
     if (!GEMINI_API_KEY) {
 
         return "❌ Gemini API key configured nahi hai.\n\nRailway → Variables mein `GEMINI_API_KEY` add karo.";
     }
-
-    // Empty question
 
     if (!question || !question.trim()) {
 
@@ -218,8 +212,6 @@ Do not claim you performed actions that you cannot actually perform.`
         const data =
             await response.json();
 
-        // API error
-
         if (!response.ok) {
 
             console.log(
@@ -233,8 +225,6 @@ Do not claim you performed actions that you cannot actually perform.`
 
             return `❌ Gemini Error:\n${errorMessage}`;
         }
-
-        // Gemini response
 
         const answer =
             data
@@ -632,8 +622,6 @@ async function startBot() {
             AUTH_FOLDER
         );
 
-        // Gemini status
-
         if (GEMINI_API_KEY) {
 
             console.log(
@@ -714,8 +702,6 @@ async function startBot() {
 
                 } = update;
 
-                // New QR
-
                 if (qr) {
 
                     currentQR =
@@ -729,8 +715,6 @@ async function startBot() {
                     );
 
                 }
-
-                // Connected
 
                 if (
                     connection ===
@@ -760,8 +744,6 @@ async function startBot() {
                     );
 
                 }
-
-                // Disconnected
 
                 if (
                     connection ===
@@ -822,20 +804,14 @@ async function startBot() {
 
                     if (!msg) return;
 
-                    // Ignore own messages
-
                     if (
                         msg.key?.fromMe
                     ) {
                         return;
                     }
 
-                    // JID
-
                     const jid =
                         msg.key.remoteJid;
-
-                    // Ignore status
 
                     if (
                         jid ===
@@ -843,8 +819,6 @@ async function startBot() {
                     ) {
                         return;
                     }
-
-                    // Message object
 
                     const message =
                         msg.message;
