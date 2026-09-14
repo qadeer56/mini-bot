@@ -1,6 +1,5 @@
 // ==========================================
 // QADEER AI BOT - TOOLS COMMANDS
-// File: commands/tools.js
 // ==========================================
 
 const { DateTime } = require("luxon");
@@ -14,48 +13,46 @@ async function handleToolsCommand(sock, jid, text) {
 
     const lower = text.toLowerCase().trim();
 
-    // ==========================================
+    // Pakistan timezone
+    const now = DateTime.now().setZone("Asia/Karachi");
+
+
+    // ======================================
     // TIME
-    // ==========================================
+    // ======================================
 
     if (lower === ".time") {
 
-        const now = DateTime.now()
-            .setZone("Asia/Karachi");
-
-        const time = now.toFormat("hh:mm:ss a");
-
         await sock.sendMessage(jid, {
             text:
-`🕐 *PAKISTAN TIME*
+`🕐 CURRENT TIME
 
-Time: ${time}
+🇵🇰 Pakistan Time:
+${now.toFormat("hh:mm:ss a")}
 
-🇵🇰 Time Zone: Pakistan Standard Time`
+📍 Timezone:
+Asia/Karachi`
         });
 
         return true;
     }
 
 
-    // ==========================================
+    // ======================================
     // DATE
-    // ==========================================
+    // ======================================
 
     if (lower === ".date") {
 
-        const now = DateTime.now()
-            .setZone("Asia/Karachi");
-
-        const date = now.toFormat("dd MMMM yyyy");
-        const day = now.toFormat("EEEE");
-
         await sock.sendMessage(jid, {
             text:
-`📅 *TODAY*
+`📅 TODAY'S DATE
 
-Date: ${date}
-Day: ${day}
+📆 Date:
+${now.toFormat("dd MMMM yyyy")}
+
+📌 Day:
+${now.toFormat("EEEE")}
 
 🇵🇰 Pakistan`
         });
@@ -64,38 +61,94 @@ Day: ${day}
     }
 
 
-    // ==========================================
+    // ======================================
     // CALENDAR
-    // ==========================================
+    // ======================================
 
     if (lower === ".calendar") {
 
-        const now = DateTime.now()
-            .setZone("Asia/Karachi");
-
-        const month = now.toFormat("MMMM");
-        const year = now.toFormat("yyyy");
-
         await sock.sendMessage(jid, {
             text:
-`📅 *CALENDAR*
+`╔════════════════════╗
+       📅 CALENDAR
+╚════════════════════╝
 
-Month: ${month}
-Year: ${year}
+📆 Date:
+${now.toFormat("dd MMMM yyyy")}
 
-Today:
-${now.toFormat("EEEE, dd MMMM yyyy")}
+📌 Day:
+${now.toFormat("EEEE")}
 
-🇵🇰 Pakistan`
+🕐 Time:
+${now.toFormat("hh:mm:ss a")}
+
+🇵🇰 Pakistan Time`
         });
 
         return true;
     }
 
 
-    // ==========================================
-    // UNKNOWN TOOL COMMAND
-    // ==========================================
+    // ======================================
+    // YEAR
+    // ======================================
+
+    if (lower === ".year") {
+
+        await sock.sendMessage(jid, {
+            text:
+`📅 CURRENT YEAR
+
+${now.toFormat("yyyy")}
+
+🇵🇰 Pakistan Time`
+        });
+
+        return true;
+    }
+
+
+    // ======================================
+    // DAY
+    // ======================================
+
+    if (lower === ".day") {
+
+        await sock.sendMessage(jid, {
+            text:
+`📌 TODAY IS
+
+${now.toFormat("EEEE")} 📅
+
+Date: ${now.toFormat("dd MMMM yyyy")}`
+        });
+
+        return true;
+    }
+
+
+    // ======================================
+    // MONTH
+    // ======================================
+
+    if (lower === ".month") {
+
+        await sock.sendMessage(jid, {
+            text:
+`📅 CURRENT MONTH
+
+${now.toFormat("MMMM")}
+
+Year: ${now.toFormat("yyyy")}`
+        });
+
+        return true;
+    }
+
+
+    // ======================================
+    // NOTHING MATCHED
+    // ======================================
 
     return false;
 }
