@@ -2,9 +2,12 @@
 // QADEER AI BOT - BOT REPLY SYSTEM
 // ==========================================
 
-const botReplies = require("../data/botReplies");
+const botReplies = require("../data/botreplies");
 
-// Recently used replies
+// ==========================================
+// RECENT REPLIES
+// ==========================================
+
 let recentReplies = [];
 
 // ==========================================
@@ -13,38 +16,60 @@ let recentReplies = [];
 
 function getRandomReply() {
 
-    if (!botReplies || botReplies.length === 0) {
-        return "Bot online hai... lekin meri creativity thori der ke liye offline hai 😭";
+    // Agar replies available nahi
+    if (
+        !botReplies ||
+        botReplies.length === 0
+    ) {
+
+        return "🤖 Bot online hai... lekin meri creativity abhi chhutti par hai 😂";
     }
 
     // Recent replies ko avoid karo
-    let availableReplies = botReplies.filter(
-        reply => !recentReplies.includes(reply)
-    );
 
-    // Agar saare replies recently use ho chuke hain
-    if (availableReplies.length === 0) {
+    let availableReplies =
+        botReplies.filter(
+            reply =>
+                !recentReplies.includes(reply)
+        );
+
+    // Agar sab replies use ho chuke hain
+
+    if (
+        availableReplies.length === 0
+    ) {
+
         recentReplies = [];
-        availableReplies = botReplies;
+
+        availableReplies =
+            botReplies;
     }
 
-    // Random reply select
+    // Random reply
+
     const reply =
         availableReplies[
-            Math.floor(Math.random() * availableReplies.length)
+            Math.floor(
+                Math.random() *
+                availableReplies.length
+            )
         ];
 
     // Recent list mein add
+
     recentReplies.push(reply);
 
     // Last 30 replies remember
-    if (recentReplies.length > 30) {
+
+    if (
+        recentReplies.length > 30
+    ) {
+
         recentReplies.shift();
     }
 
     return reply;
 }
-
 
 // ==========================================
 // BOT WORD DETECTION
@@ -52,9 +77,12 @@ function getRandomReply() {
 
 function isBotMention(text) {
 
-    if (!text) return false;
+    if (!text) {
+        return false;
+    }
 
-    const lower = text.toLowerCase().trim();
+    const lower =
+        text.toLowerCase().trim();
 
     return (
         /\bbot\b/i.test(lower) ||
@@ -63,26 +91,30 @@ function isBotMention(text) {
     );
 }
 
-
 // ==========================================
 // GET BOT REPLY
 // ==========================================
 
 function getBotReply(text) {
 
-    if (!isBotMention(text)) {
+    if (
+        !isBotMention(text)
+    ) {
+
         return null;
     }
 
     return getRandomReply();
 }
 
-
 // ==========================================
 // EXPORT
 // ==========================================
 
 module.exports = {
+
     isBotMention,
+
     getBotReply
+
 };
