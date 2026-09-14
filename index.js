@@ -7,24 +7,15 @@ const {
 const P = require("pino");
 const express = require("express");
 const QRCode = require("qrcode");
-const OpenAI = require("openai");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-
 
 // ==========================================
 // CONFIG
 // ==========================================
 
 const AUTH_FOLDER = "/data/auth_info";
-
-
-// OpenAI
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
-});
-
 
 // ==========================================
 // GLOBAL VARIABLES
@@ -34,13 +25,11 @@ let currentQR = null;
 let isConnected = false;
 let sock = null;
 
-
 // ==========================================
 // MENU
 // ==========================================
 
 function getMenu() {
-
     return `
 ╭━━━━━━━━━━━━━━━━━━━━━━╮
       🤖 QADEER AI BOT
@@ -84,52 +73,7 @@ function getMenu() {
 🚀 Online & Ready
 ━━━━━━━━━━━━━━━━━━━━━━
 `;
-
 }
-
-
-// ==========================================
-// AI FUNCTION
-// ==========================================
-
-async function askAI(question) {
-
-    try {
-
-        if (!process.env.OPENAI_API_KEY) {
-
-            return "❌ OpenAI API key configured nahi hai.";
-
-        }
-
-
-        const response = await openai.responses.create({
-
-            model: "gpt-5-mini",
-
-            instructions:
-                "You are Qadeer AI Bot, a friendly and helpful WhatsApp AI assistant. Reply naturally and concisely. You can understand Roman Urdu, Urdu and English.",
-
-            input: question
-
-        });
-
-
-        return response.output_text;
-
-    } catch (error) {
-
-        console.log(
-            "❌ OpenAI Error:",
-            error.message
-        );
-
-        return "❌ AI se response lene mein problem aa gayi. Thori der baad try karo.";
-
-    }
-
-}
-
 
 // ==========================================
 // WEB SERVER
@@ -138,21 +82,14 @@ async function askAI(question) {
 app.get("/", async (req, res) => {
 
     if (isConnected) {
-
         return res.send(`
 <!DOCTYPE html>
 <html>
-
 <head>
-
 <title>Qadeer AI Bot</title>
-
-<meta
-name="viewport"
-content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-
 body {
     background:#111827;
     color:white;
@@ -182,9 +119,7 @@ body {
 p {
     color:#d1d5db;
 }
-
 </style>
-
 </head>
 
 <body>
@@ -202,30 +137,19 @@ p {
 </div>
 
 </body>
-
 </html>
 `);
-
     }
 
-
     if (!currentQR) {
-
         return res.send(`
 <!DOCTYPE html>
-
 <html>
-
 <head>
-
 <title>Qadeer AI Bot</title>
-
-<meta
-name="viewport"
-content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
-
 body {
     background:#111827;
     color:white;
@@ -243,9 +167,7 @@ body {
     border-radius:20px;
     text-align:center;
 }
-
 </style>
-
 </head>
 
 <body>
@@ -265,22 +187,17 @@ Page refresh karo.
 </div>
 
 </body>
-
 </html>
 `);
-
     }
-
 
     try {
 
         const qrImage =
             await QRCode.toDataURL(currentQR);
 
-
         res.send(`
 <!DOCTYPE html>
-
 <html>
 
 <head>
@@ -294,7 +211,6 @@ content="width=device-width, initial-scale=1.0">
 <style>
 
 body {
-
     background:#111827;
     color:white;
     font-family:Arial;
@@ -307,11 +223,9 @@ body {
 
     margin:0;
     padding:20px;
-
 }
 
 .box {
-
     background:#1f2937;
 
     padding:30px;
@@ -322,11 +236,9 @@ body {
 
     width:100%;
     max-width:430px;
-
 }
 
 img {
-
     width:280px;
     max-width:90%;
 
@@ -335,11 +247,9 @@ img {
     padding:10px;
 
     border-radius:12px;
-
 }
 
 .steps {
-
     text-align:left;
 
     margin-top:20px;
@@ -347,7 +257,6 @@ img {
     line-height:1.8;
 
     color:#d1d5db;
-
 }
 
 </style>
@@ -384,17 +293,16 @@ img {
 
     } catch (error) {
 
-        res.send(
-            "QR generation error."
-        );
+        console.log("QR Error:", error.message);
+
+        res.send("QR generation error.");
 
     }
 
 });
 
-
 // ==========================================
-// START SERVER
+// START WEB SERVER
 // ==========================================
 
 app.listen(PORT, () => {
@@ -405,9 +313,8 @@ app.listen(PORT, () => {
 
 });
 
-
 // ==========================================
-// START WHATSAPP
+// START WHATSAPP BOT
 // ==========================================
 
 async function startBot() {
@@ -418,12 +325,10 @@ async function startBot() {
             "🚀 Starting Qadeer AI Bot..."
         );
 
-
         console.log(
             "📁 Auth folder:",
             AUTH_FOLDER
         );
-
 
         const {
             state,
@@ -431,7 +336,6 @@ async function startBot() {
         } = await useMultiFileAuthState(
             AUTH_FOLDER
         );
-
 
         sock = makeWASocket({
 
@@ -449,12 +353,11 @@ async function startBot() {
 
         });
 
-
+        // Save WhatsApp authentication
         sock.ev.on(
             "creds.update",
             saveCreds
         );
-
 
         // ======================================
         // CONNECTION
@@ -470,7 +373,6 @@ async function startBot() {
                     qr
                 } = update;
 
-
                 if (qr) {
 
                     currentQR = qr;
@@ -483,10 +385,7 @@ async function startBot() {
 
                 }
 
-
-                if (
-                    connection === "open"
-                ) {
+                if (connection === "open") {
 
                     isConnected = true;
 
@@ -510,15 +409,11 @@ async function startBot() {
 
                 }
 
-
-                if (
-                    connection === "close"
-                ) {
+                if (connection === "close") {
 
                     isConnected = false;
 
                     currentQR = null;
-
 
                     const statusCode =
                         lastDisconnect
@@ -526,23 +421,19 @@ async function startBot() {
                         ?.output
                         ?.statusCode;
 
-
                     const reconnect =
                         statusCode !==
                         DisconnectReason.loggedOut;
 
-
                     console.log(
                         "🔴 WhatsApp connection closed."
                     );
-
 
                     if (reconnect) {
 
                         console.log(
                             "🔄 Reconnecting..."
                         );
-
 
                         setTimeout(
                             startBot,
@@ -556,7 +447,6 @@ async function startBot() {
             }
         );
 
-
         // ======================================
         // MESSAGES
         // ======================================
@@ -567,38 +457,32 @@ async function startBot() {
 
                 try {
 
-                    const msg =
-                        messages[0];
-
+                    const msg = messages[0];
 
                     if (!msg) return;
 
-
-                    if (
-                        msg.key?.fromMe
-                    ) return;
-
+                    // Ignore own messages
+                    if (msg.key?.fromMe) return;
 
                     const jid =
                         msg.key.remoteJid;
 
-
+                    // Ignore WhatsApp status
                     if (
                         jid ===
                         "status@broadcast"
-                    ) return;
-
+                    ) {
+                        return;
+                    }
 
                     const message =
                         msg.message;
 
-
                     if (!message) return;
-
 
                     let text = "";
 
-
+                    // Normal message
                     if (
                         message.conversation
                     ) {
@@ -608,6 +492,7 @@ async function startBot() {
 
                     }
 
+                    // Reply / quoted / extended message
                     else if (
                         message
                         .extendedTextMessage
@@ -621,22 +506,16 @@ async function startBot() {
 
                     }
 
-
-                    text =
-                        text.trim();
-
+                    text = text.trim();
 
                     if (!text) return;
-
 
                     const lower =
                         text.toLowerCase();
 
-
                     console.log(
                         `📩 ${text}`
                     );
-
 
                     // ==================================
                     // MENU
@@ -650,15 +529,12 @@ async function startBot() {
                         await sock.sendMessage(
                             jid,
                             {
-                                text:
-                                    getMenu()
+                                text: getMenu()
                             }
                         );
 
                         return;
-
                     }
-
 
                     // ==================================
                     // PING
@@ -677,9 +553,7 @@ async function startBot() {
                         );
 
                         return;
-
                     }
-
 
                     // ==================================
                     // HELLO
@@ -699,9 +573,7 @@ async function startBot() {
                         );
 
                         return;
-
                     }
-
 
                     // ==================================
                     // SALAM
@@ -721,9 +593,7 @@ async function startBot() {
                         );
 
                         return;
-
                     }
-
 
                     // ==================================
                     // OWNER
@@ -742,9 +612,7 @@ async function startBot() {
                         );
 
                         return;
-
                     }
-
 
                     // ==================================
                     // TIME
@@ -757,7 +625,6 @@ async function startBot() {
                         const now =
                             new Date();
 
-
                         await sock.sendMessage(
                             jid,
                             {
@@ -767,9 +634,7 @@ async function startBot() {
                         );
 
                         return;
-
                     }
-
 
                     // ==================================
                     // DATE
@@ -782,7 +647,6 @@ async function startBot() {
                         const now =
                             new Date();
 
-
                         await sock.sendMessage(
                             jid,
                             {
@@ -792,121 +656,47 @@ async function startBot() {
                         );
 
                         return;
-
                     }
 
-
                     // ==================================
-                    // AI
+                    // AI PLACEHOLDER
                     // ==================================
 
                     if (
+                        lower === ".ai" ||
                         lower.startsWith(".ai ")
                     ) {
 
-                        const question =
-                            text.substring(4).trim();
-
-
-                        if (!question) {
-
-                            await sock.sendMessage(
-                                jid,
-                                {
-                                    text:
-                                        "🤖 Example:\n.ai Python kya hai?"
-                                }
-                            );
-
-                            return;
-
-                        }
-
-
                         await sock.sendMessage(
                             jid,
                             {
                                 text:
-                                    "🤔 AI soch raha hai..."
+                                    "🤖 AI system ready hai, lekin API credits abhi available nahi hain."
                             }
                         );
-
-
-                        const answer =
-                            await askAI(
-                                question
-                            );
-
-
-                        await sock.sendMessage(
-                            jid,
-                            {
-                                text:
-                                    answer
-                            }
-                        );
-
 
                         return;
-
                     }
 
-
                     // ==================================
-                    // ASK
+                    // ASK PLACEHOLDER
                     // ==================================
 
                     if (
+                        lower === ".ask" ||
                         lower.startsWith(".ask ")
                     ) {
 
-                        const question =
-                            text.substring(5).trim();
-
-
-                        if (!question) {
-
-                            await sock.sendMessage(
-                                jid,
-                                {
-                                    text:
-                                        "🤖 Example:\n.ask Python kya hai?"
-                                }
-                            );
-
-                            return;
-
-                        }
-
-
                         await sock.sendMessage(
                             jid,
                             {
                                 text:
-                                    "🧠 Answer prepare kar raha hoon..."
+                                    "🧠 AI system ready hai, lekin API credits abhi available nahi hain."
                             }
                         );
-
-
-                        const answer =
-                            await askAI(
-                                question
-                            );
-
-
-                        await sock.sendMessage(
-                            jid,
-                            {
-                                text:
-                                    answer
-                            }
-                        );
-
 
                         return;
-
                     }
-
 
                     // ==================================
                     // UNKNOWN COMMAND
@@ -920,14 +710,12 @@ async function startBot() {
                             jid,
                             {
                                 text:
-                                    "❌ Ye command abhi available nahi hai.\n\n`.menu` likho aur commands dekho. 🤖"
+                                    "❌ Ye command abhi available nahi hai.\n\n`.menu` likho aur available commands dekho. 🤖"
                             }
                         );
 
                         return;
-
                     }
-
 
                 } catch (error) {
 
@@ -941,14 +729,12 @@ async function startBot() {
             }
         );
 
-
     } catch (error) {
 
         console.log(
             "❌ Startup Error:",
             error.message
         );
-
 
         setTimeout(
             startBot,
@@ -959,9 +745,8 @@ async function startBot() {
 
 }
 
-
 // ==========================================
-// START BOT
+// START
 // ==========================================
 
 startBot();
