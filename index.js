@@ -1,4 +1,4 @@
- const {
+const {
     default: makeWASocket,
     useMultiFileAuthState,
     DisconnectReason
@@ -7,37 +7,40 @@
 const P = require("pino");
 const express = require("express");
 const QRCode = require("qrcode");
-
-
-// ===============================
-// CONFIG
-// ===============================
+const OpenAI = require("openai");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Railway Persistent Volume
+
+// ==========================================
+// CONFIG
+// ==========================================
+
 const AUTH_FOLDER = "/data/auth_info";
 
-// Apna WhatsApp number yahan baad mein set karna
-// Example: 923001234567
-const OWNER_NUMBER = "923XXXXXXXXX";
+
+// OpenAI
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY
+});
 
 
-// ===============================
+// ==========================================
 // GLOBAL VARIABLES
-// ===============================
+// ==========================================
 
 let currentQR = null;
 let isConnected = false;
 let sock = null;
 
 
-// ===============================
-// BOT MENU
-// ===============================
+// ==========================================
+// MENU
+// ==========================================
 
 function getMenu() {
+
     return `
 ╭━━━━━━━━━━━━━━━━━━━━━━╮
       🤖 QADEER AI BOT
@@ -81,338 +84,353 @@ function getMenu() {
 🚀 Online & Ready
 ━━━━━━━━━━━━━━━━━━━━━━
 `;
+
 }
 
 
-// ===============================
-// EXPRESS WEB SERVER
-// ===============================
+// ==========================================
+// AI FUNCTION
+// ==========================================
+
+async function askAI(question) {
+
+    try {
+
+        if (!process.env.OPENAI_API_KEY) {
+
+            return "❌ OpenAI API key configured nahi hai.";
+
+        }
+
+
+        const response = await openai.responses.create({
+
+            model: "gpt-5-mini",
+
+            instructions:
+                "You are Qadeer AI Bot, a friendly and helpful WhatsApp AI assistant. Reply naturally and concisely. You can understand Roman Urdu, Urdu and English.",
+
+            input: question
+
+        });
+
+
+        return response.output_text;
+
+    } catch (error) {
+
+        console.log(
+            "❌ OpenAI Error:",
+            error.message
+        );
+
+        return "❌ AI se response lene mein problem aa gayi. Thori der baad try karo.";
+
+    }
+
+}
+
+
+// ==========================================
+// WEB SERVER
+// ==========================================
 
 app.get("/", async (req, res) => {
 
     if (isConnected) {
 
         return res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Qadeer AI Bot</title>
+<!DOCTYPE html>
+<html>
 
-            <meta name="viewport"
-            content="width=device-width, initial-scale=1.0">
+<head>
 
-            <style>
+<title>Qadeer AI Bot</title>
 
-                body {
-                    background: #111827;
-                    color: white;
-                    font-family: Arial, sans-serif;
+<meta
+name="viewport"
+content="width=device-width, initial-scale=1.0">
 
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
+<style>
 
-                    min-height: 100vh;
-                    margin: 0;
-                }
+body {
+    background:#111827;
+    color:white;
+    font-family:Arial;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    min-height:100vh;
+    margin:0;
+}
 
-                .box {
-                    background: #1f2937;
-                    padding: 40px;
-                    border-radius: 20px;
-                    text-align: center;
-                    width: 90%;
-                    max-width: 450px;
+.box {
+    background:#1f2937;
+    padding:40px;
+    border-radius:20px;
+    text-align:center;
+    width:90%;
+    max-width:450px;
+}
 
-                    box-shadow:
-                    0 10px 30px rgba(0,0,0,0.4);
-                }
+.status {
+    color:#22c55e;
+    font-size:24px;
+    font-weight:bold;
+}
 
-                .status {
-                    color: #22c55e;
-                    font-size: 24px;
-                    font-weight: bold;
-                }
+p {
+    color:#d1d5db;
+}
 
-                p {
-                    color: #d1d5db;
-                }
+</style>
 
-            </style>
-        </head>
+</head>
 
-        <body>
+<body>
 
-            <div class="box">
+<div class="box">
 
-                <div class="status">
-                    🟢 WhatsApp Connected
-                </div>
+<div class="status">
+🟢 WhatsApp Connected
+</div>
 
-                <p>
-                    Qadeer AI Bot is online and running.
-                </p>
+<p>
+🤖 Qadeer AI Bot is online
+</p>
 
-                <p>
-                    🤖 Ready for messages
-                </p>
+</div>
 
-            </div>
+</body>
 
-        </body>
-        </html>
-        `);
+</html>
+`);
+
     }
 
 
     if (!currentQR) {
 
         return res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Qadeer AI Bot</title>
-            <meta name="viewport"
-            content="width=device-width, initial-scale=1.0">
+<!DOCTYPE html>
 
-            <style>
+<html>
 
-                body {
-                    background: #111827;
-                    color: white;
-                    font-family: Arial, sans-serif;
+<head>
 
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
+<title>Qadeer AI Bot</title>
 
-                    min-height: 100vh;
-                    margin: 0;
-                }
+<meta
+name="viewport"
+content="width=device-width, initial-scale=1.0">
 
-                .box {
-                    background: #1f2937;
-                    padding: 35px;
-                    border-radius: 20px;
-                    text-align: center;
-                    width: 90%;
-                    max-width: 450px;
-                }
+<style>
 
-                h1 {
-                    margin-bottom: 10px;
-                }
+body {
+    background:#111827;
+    color:white;
+    font-family:Arial;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    min-height:100vh;
+    margin:0;
+}
 
-                p {
-                    color: #d1d5db;
-                }
+.box {
+    background:#1f2937;
+    padding:35px;
+    border-radius:20px;
+    text-align:center;
+}
 
-            </style>
-        </head>
+</style>
 
-        <body>
+</head>
 
-            <div class="box">
+<body>
 
-                <h1>🤖 Qadeer AI Bot</h1>
+<div class="box">
 
-                <p>
-                    QR code is being generated...
-                </p>
+<h1>🤖 Qadeer AI Bot</h1>
 
-                <p>
-                    Please refresh this page.
-                </p>
+<p>
+QR code generate ho raha hai...
+</p>
 
-            </div>
+<p>
+Page refresh karo.
+</p>
 
-        </body>
-        </html>
-        `);
+</div>
+
+</body>
+
+</html>
+`);
+
     }
 
 
     try {
 
-        const qrImage = await QRCode.toDataURL(currentQR);
+        const qrImage =
+            await QRCode.toDataURL(currentQR);
+
 
         res.send(`
-        <!DOCTYPE html>
+<!DOCTYPE html>
 
-        <html>
+<html>
 
-        <head>
+<head>
 
-            <title>Qadeer AI Bot - WhatsApp Login</title>
+<title>Qadeer AI Bot - Login</title>
 
-            <meta
-            name="viewport"
-            content="width=device-width, initial-scale=1.0">
+<meta
+name="viewport"
+content="width=device-width, initial-scale=1.0">
 
-            <style>
+<style>
 
-                * {
-                    box-sizing: border-box;
-                }
+body {
 
-                body {
+    background:#111827;
+    color:white;
+    font-family:Arial;
 
-                    background: #111827;
+    display:flex;
+    justify-content:center;
+    align-items:center;
 
-                    color: white;
+    min-height:100vh;
 
-                    font-family: Arial, sans-serif;
+    margin:0;
+    padding:20px;
 
-                    display: flex;
+}
 
-                    justify-content: center;
+.box {
 
-                    align-items: center;
+    background:#1f2937;
 
-                    min-height: 100vh;
+    padding:30px;
 
-                    margin: 0;
+    border-radius:20px;
 
-                    padding: 20px;
+    text-align:center;
 
-                }
+    width:100%;
+    max-width:430px;
 
-                .box {
+}
 
-                    background: #1f2937;
+img {
 
-                    padding: 30px;
+    width:280px;
+    max-width:90%;
 
-                    border-radius: 20px;
+    background:white;
 
-                    text-align: center;
+    padding:10px;
 
-                    width: 100%;
+    border-radius:12px;
 
-                    max-width: 430px;
+}
 
-                    box-shadow:
-                    0 10px 30px
-                    rgba(0,0,0,0.4);
+.steps {
 
-                }
+    text-align:left;
 
-                h1 {
+    margin-top:20px;
 
-                    margin-top: 0;
+    line-height:1.8;
 
-                }
+    color:#d1d5db;
 
-                img {
+}
 
-                    width: 280px;
+</style>
 
-                    max-width: 90%;
+</head>
 
-                    background: white;
+<body>
 
-                    padding: 10px;
+<div class="box">
 
-                    border-radius: 12px;
+<h1>🤖 Qadeer AI Bot</h1>
 
-                }
+<p>WhatsApp se QR scan karo</p>
 
-                .steps {
+<img src="${qrImage}" />
 
-                    text-align: left;
+<div class="steps">
 
-                    margin-top: 20px;
+<b>📱 Steps:</b><br>
 
-                    line-height: 1.8;
+1. WhatsApp open karo<br>
+2. Settings → Linked Devices<br>
+3. Link a Device<br>
+4. QR scan karo
 
-                    color: #d1d5db;
+</div>
 
-                }
+</div>
 
-                .refresh {
+</body>
 
-                    margin-top: 15px;
-
-                    color: #60a5fa;
-
-                }
-
-            </style>
-
-        </head>
-
-        <body>
-
-            <div class="box">
-
-                <h1>🤖 Qadeer AI Bot</h1>
-
-                <p>Scan this QR code with WhatsApp</p>
-
-                <img src="${qrImage}" />
-
-                <div class="steps">
-
-                    <b>📱 WhatsApp:</b><br>
-
-                    1. Open WhatsApp<br>
-
-                    2. Settings → Linked Devices<br>
-
-                    3. Link a Device<br>
-
-                    4. Scan this QR code
-
-                </div>
-
-                <div class="refresh">
-
-                    QR expire ho jaye to page refresh karein.
-                </div>
-
-            </div>
-
-        </body>
-
-        </html>
-        `);
+</html>
+`);
 
     } catch (error) {
 
-        res.send("QR generation error.");
+        res.send(
+            "QR generation error."
+        );
 
     }
 
 });
 
 
-// ===============================
-// START WEB SERVER
-// ===============================
+// ==========================================
+// START SERVER
+// ==========================================
 
 app.listen(PORT, () => {
 
-    console.log(`🌐 Web server running on port ${PORT}`);
+    console.log(
+        `🌐 Web server running on port ${PORT}`
+    );
 
 });
 
 
-// ===============================
-// START WHATSAPP BOT
-// ===============================
+// ==========================================
+// START WHATSAPP
+// ==========================================
 
 async function startBot() {
 
     try {
 
-        console.log("🚀 Starting Qadeer AI Bot...");
+        console.log(
+            "🚀 Starting Qadeer AI Bot..."
+        );
 
-        console.log("📁 Auth folder:", AUTH_FOLDER);
+
+        console.log(
+            "📁 Auth folder:",
+            AUTH_FOLDER
+        );
 
 
-        // Persistent authentication
-        const { state, saveCreds } =
-            await useMultiFileAuthState(AUTH_FOLDER);
+        const {
+            state,
+            saveCreds
+        } = await useMultiFileAuthState(
+            AUTH_FOLDER
+        );
 
 
         sock = makeWASocket({
@@ -432,16 +450,15 @@ async function startBot() {
         });
 
 
-        // Save login credentials
         sock.ev.on(
             "creds.update",
             saveCreds
         );
 
 
-        // ===============================
-        // CONNECTION UPDATE
-        // ===============================
+        // ======================================
+        // CONNECTION
+        // ======================================
 
         sock.ev.on(
             "connection.update",
@@ -454,7 +471,6 @@ async function startBot() {
                 } = update;
 
 
-                // New QR received
                 if (qr) {
 
                     currentQR = qr;
@@ -465,15 +481,12 @@ async function startBot() {
                         "📱 New QR generated."
                     );
 
-                    console.log(
-                        "🌐 Open Railway domain to scan QR."
-                    );
-
                 }
 
 
-                // Connected
-                if (connection === "open") {
+                if (
+                    connection === "open"
+                ) {
 
                     isConnected = true;
 
@@ -488,7 +501,7 @@ async function startBot() {
                     );
 
                     console.log(
-                        "🤖 Qadeer AI Bot is ONLINE"
+                        "🤖 Qadeer AI Bot ONLINE"
                     );
 
                     console.log(
@@ -498,8 +511,9 @@ async function startBot() {
                 }
 
 
-                // Connection closed
-                if (connection === "close") {
+                if (
+                    connection === "close"
+                ) {
 
                     isConnected = false;
 
@@ -513,7 +527,7 @@ async function startBot() {
                         ?.statusCode;
 
 
-                    const shouldReconnect =
+                    const reconnect =
                         statusCode !==
                         DisconnectReason.loggedOut;
 
@@ -523,26 +537,16 @@ async function startBot() {
                     );
 
 
-                    if (shouldReconnect) {
+                    if (reconnect) {
 
                         console.log(
                             "🔄 Reconnecting..."
                         );
 
-                        setTimeout(() => {
 
-                            startBot();
-
-                        }, 5000);
-
-                    } else {
-
-                        console.log(
-                            "⚠️ WhatsApp logged out."
-                        );
-
-                        console.log(
-                            "📱 New QR login required."
+                        setTimeout(
+                            startBot,
+                            5000
                         );
 
                     }
@@ -553,9 +557,9 @@ async function startBot() {
         );
 
 
-        // ===============================
-        // MESSAGE HANDLER
-        // ===============================
+        // ======================================
+        // MESSAGES
+        // ======================================
 
         sock.ev.on(
             "messages.upsert",
@@ -563,32 +567,26 @@ async function startBot() {
 
                 try {
 
-                    const msg = messages[0];
+                    const msg =
+                        messages[0];
 
 
                     if (!msg) return;
 
 
-                    // Ignore own messages
                     if (
-                        msg.key &&
-                        msg.key.fromMe
-                    ) {
-                        return;
-                    }
+                        msg.key?.fromMe
+                    ) return;
 
 
                     const jid =
                         msg.key.remoteJid;
 
 
-                    // Ignore status
                     if (
                         jid ===
                         "status@broadcast"
-                    ) {
-                        return;
-                    }
+                    ) return;
 
 
                     const message =
@@ -597,10 +595,6 @@ async function startBot() {
 
                     if (!message) return;
 
-
-                    // ===============================
-                    // GET TEXT
-                    // ===============================
 
                     let text = "";
 
@@ -615,7 +609,8 @@ async function startBot() {
                     }
 
                     else if (
-                        message.extendedTextMessage
+                        message
+                        .extendedTextMessage
                         ?.text
                     ) {
 
@@ -628,8 +623,7 @@ async function startBot() {
 
 
                     text =
-                        text
-                        .trim();
+                        text.trim();
 
 
                     if (!text) return;
@@ -640,13 +634,13 @@ async function startBot() {
 
 
                     console.log(
-                        `📩 Message: ${text}`
+                        `📩 ${text}`
                     );
 
 
-                    // ===============================
+                    // ==================================
                     // MENU
-                    // ===============================
+                    // ==================================
 
                     if (
                         lower === ".menu" ||
@@ -656,7 +650,8 @@ async function startBot() {
                         await sock.sendMessage(
                             jid,
                             {
-                                text: getMenu()
+                                text:
+                                    getMenu()
                             }
                         );
 
@@ -665,9 +660,9 @@ async function startBot() {
                     }
 
 
-                    // ===============================
+                    // ==================================
                     // PING
-                    // ===============================
+                    // ==================================
 
                     if (
                         lower === ".ping"
@@ -677,7 +672,7 @@ async function startBot() {
                             jid,
                             {
                                 text:
-                                "🏓 Pong! Qadeer AI Bot zinda hai 😎🔥"
+                                    "🏓 Pong! Qadeer AI Bot zinda hai 😎🔥"
                             }
                         );
 
@@ -686,9 +681,9 @@ async function startBot() {
                     }
 
 
-                    // ===============================
+                    // ==================================
                     // HELLO
-                    // ===============================
+                    // ==================================
 
                     if (
                         lower === "hello" ||
@@ -699,7 +694,7 @@ async function startBot() {
                             jid,
                             {
                                 text:
-                                "😂 O bhai! Hello! Qadeer AI Bot online hai 😎🔥"
+                                    "😂 O bhai! Hello! Qadeer AI Bot online hai 😎🔥"
                             }
                         );
 
@@ -708,21 +703,20 @@ async function startBot() {
                     }
 
 
-                    // ===============================
+                    // ==================================
                     // SALAM
-                    // ===============================
+                    // ==================================
 
                     if (
                         lower === "salam" ||
-                        lower ===
-                        "assalamualaikum"
+                        lower === "assalamualaikum"
                     ) {
 
                         await sock.sendMessage(
                             jid,
                             {
                                 text:
-                                "Wa Alaikum Assalam bhai ❤️🤖 Qadeer AI Bot hazir hai 😎"
+                                    "Wa Alaikum Assalam bhai ❤️🤖 Qadeer AI Bot hazir hai 😎"
                             }
                         );
 
@@ -731,9 +725,9 @@ async function startBot() {
                     }
 
 
-                    // ===============================
+                    // ==================================
                     // OWNER
-                    // ===============================
+                    // ==================================
 
                     if (
                         lower === ".owner"
@@ -743,7 +737,7 @@ async function startBot() {
                             jid,
                             {
                                 text:
-                                "👑 Bot Owner: Qadeer\n🤖 Qadeer AI Bot"
+                                    "👑 Bot Owner: Qadeer\n🤖 Qadeer AI Bot"
                             }
                         );
 
@@ -752,9 +746,9 @@ async function startBot() {
                     }
 
 
-                    // ===============================
+                    // ==================================
                     // TIME
-                    // ===============================
+                    // ==================================
 
                     if (
                         lower === ".time"
@@ -763,11 +757,12 @@ async function startBot() {
                         const now =
                             new Date();
 
+
                         await sock.sendMessage(
                             jid,
                             {
                                 text:
-                                `🕐 Current Server Time:\n${now.toLocaleString()}`
+                                    `🕐 Server Time:\n${now.toLocaleString()}`
                             }
                         );
 
@@ -776,9 +771,9 @@ async function startBot() {
                     }
 
 
-                    // ===============================
+                    // ==================================
                     // DATE
-                    // ===============================
+                    // ==================================
 
                     if (
                         lower === ".date"
@@ -787,11 +782,12 @@ async function startBot() {
                         const now =
                             new Date();
 
+
                         await sock.sendMessage(
                             jid,
                             {
                                 text:
-                                `📅 Today:\n${now.toDateString()}`
+                                    `📅 Date:\n${now.toDateString()}`
                             }
                         );
 
@@ -800,9 +796,121 @@ async function startBot() {
                     }
 
 
-                    // ===============================
+                    // ==================================
+                    // AI
+                    // ==================================
+
+                    if (
+                        lower.startsWith(".ai ")
+                    ) {
+
+                        const question =
+                            text.substring(4).trim();
+
+
+                        if (!question) {
+
+                            await sock.sendMessage(
+                                jid,
+                                {
+                                    text:
+                                        "🤖 Example:\n.ai Python kya hai?"
+                                }
+                            );
+
+                            return;
+
+                        }
+
+
+                        await sock.sendMessage(
+                            jid,
+                            {
+                                text:
+                                    "🤔 AI soch raha hai..."
+                            }
+                        );
+
+
+                        const answer =
+                            await askAI(
+                                question
+                            );
+
+
+                        await sock.sendMessage(
+                            jid,
+                            {
+                                text:
+                                    answer
+                            }
+                        );
+
+
+                        return;
+
+                    }
+
+
+                    // ==================================
+                    // ASK
+                    // ==================================
+
+                    if (
+                        lower.startsWith(".ask ")
+                    ) {
+
+                        const question =
+                            text.substring(5).trim();
+
+
+                        if (!question) {
+
+                            await sock.sendMessage(
+                                jid,
+                                {
+                                    text:
+                                        "🤖 Example:\n.ask Python kya hai?"
+                                }
+                            );
+
+                            return;
+
+                        }
+
+
+                        await sock.sendMessage(
+                            jid,
+                            {
+                                text:
+                                    "🧠 Answer prepare kar raha hoon..."
+                            }
+                        );
+
+
+                        const answer =
+                            await askAI(
+                                question
+                            );
+
+
+                        await sock.sendMessage(
+                            jid,
+                            {
+                                text:
+                                    answer
+                            }
+                        );
+
+
+                        return;
+
+                    }
+
+
+                    // ==================================
                     // UNKNOWN COMMAND
-                    // ===============================
+                    // ==================================
 
                     if (
                         text.startsWith(".")
@@ -812,7 +920,7 @@ async function startBot() {
                             jid,
                             {
                                 text:
-                                "❌ Ye command abhi available nahi hai.\n\n`.menu` likho aur available commands dekho. 🤖"
+                                    "❌ Ye command abhi available nahi hai.\n\n`.menu` likho aur commands dekho. 🤖"
                             }
                         );
 
@@ -821,20 +929,10 @@ async function startBot() {
                     }
 
 
-                    // ===============================
-                    // NORMAL MESSAGE
-                    // ===============================
-
-                    console.log(
-                        "💬 Normal message received:",
-                        text
-                    );
-
-
                 } catch (error) {
 
                     console.log(
-                        "❌ Message error:",
+                        "❌ Message Error:",
                         error.message
                     );
 
@@ -847,24 +945,23 @@ async function startBot() {
     } catch (error) {
 
         console.log(
-            "❌ Bot startup error:",
-            error
+            "❌ Startup Error:",
+            error.message
         );
 
 
-        setTimeout(() => {
-
-            startBot();
-
-        }, 5000);
+        setTimeout(
+            startBot,
+            5000
+        );
 
     }
 
 }
 
 
-// ===============================
-// START
-// ===============================
+// ==========================================
+// START BOT
+// ==========================================
 
 startBot();
