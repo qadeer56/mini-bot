@@ -1,41 +1,81 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require("@whiskeysockets/baileys");
+const {
+    default: makeWASocket,
+    useMultiFileAuthState,
+    DisconnectReason
+} = require("@whiskeysockets/baileys");
+
 const P = require("pino");
+const qrcode = require("qrcode-terminal");
 
 async function startBot() {
-    const { state, saveCreds } = await useMultiFileAuthState("auth_info");
+    console.log("================================");
+    console.log("🚀 QADEER AI BOT STARTING...");
+    console.log("================================");
+
+    const { state, saveCreds } =
+        await useMultiFileAuthState("auth_info");
 
     const sock = makeWASocket({
         auth: state,
         logger: P({ level: "silent" }),
-        printQRInTerminal: true
+        markOnlineOnConnect: false
     });
 
+    // Save WhatsApp login/session
     sock.ev.on("creds.update", saveCreds);
 
-    sock.ev.on("connection.update", ({ connection, lastDisconnect }) => {
+    // Connection
+    sock.ev.on("connection.update", async (update) => {
+        const { connection, lastDisconnect, qr } = update;
+
+        // QR Code
+        if (qr) {
+            console.log("");
+            console.log("📱 WHATSAPP QR CODE:");
+            console.log("Scan this QR from WhatsApp > Linked Devices");
+            console.log("");
+
+            qrcode.generate(qr, { small: true });
+        }
+
+        // Connected
         if (connection === "open") {
+            console.log("");
             console.log("================================");
             console.log("✅ QADEER AI BOT READY");
+            console.log("✅ WHATSAPP CONNECTED");
             console.log("================================");
         }
 
+        // Disconnected
         if (connection === "close") {
-            const shouldReconnect =
-                lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
+            const statusCode =
+                lastDisconnect?.error?.output?.statusCode;
 
-            console.log("❌ Connection closed");
+            const shouldReconnect =
+                statusCode !== DisconnectReason.loggedOut;
+
+            console.log("❌ WhatsApp connection closed");
+            console.log("Status:", statusCode);
 
             if (shouldReconnect) {
                 console.log("🔄 Reconnecting...");
-                startBot();
+                setTimeout(startBot, 5000);
+            } else {
+                console.log("🔒 WhatsApp logged out.");
+                console.log("Please login again.");
             }
         }
     });
 
-    sock.ev.on("messages.upsert", async ({ messages }) => {
+    // Receive messages
+    sock.ev.on("messages.upsert", async ({ messages, type }) => {
+        if (type !== "notify") return;
+
         const msg = messages[0];
 
-        if (!msg.message || msg.key.fromMe) return;
+        if (!msg || !msg.message) return;
+        if (msg.key.fromMe) return;
 
         const jid = msg.key.remoteJid;
 
@@ -44,14 +84,34 @@ async function startBot() {
             msg.message.extendedTextMessage?.text ||
             "";
 
-        console.log("📩 Message:", text);
+        if (!text) return;
 
-        if (text.toLowerCase() === "hello") {
+        console.log("");
+        console.log("📩 MESSAGE RECEIVED");
+        console.log("From:", jid);
+        console.log("Text:", text);
+
+        // Test reply
+        if (text.toLowerCase().trim() === "hello") {
             await sock.sendMessage(jid, {
-                text: "😂 O bhai, hello! Qadeer AI Bot online hai 😎"
+                text: "😂 O bhai! Hello! Qadeer AI Bot online hai 😎🔥"
             });
+
+            console.log("✅ Reply sent");
+        }
+
+        // Test command
+        if (text.toLowerCase().trim() === ".ping") {
+            await sock.sendMessage(jid, {
+                text: "🏓 Pong! Qadeer AI Bot zinda hai 😎"
+            });
+
+            console.log("🏓 Ping reply sent");
         }
     });
 }
 
-startBot();
+startBot().catch((error) => {
+    console.error("🔥 BOT ERROR:");
+    console.error(error);
+});
