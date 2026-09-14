@@ -38,7 +38,7 @@ const GEMINI_API_KEY =
 
 // Gemini model
 const GEMINI_MODEL =
-    "gemini-1.5-flash";
+    "gemini-3.5-flash";
 
 // ==========================================
 // GLOBAL VARIABLES
