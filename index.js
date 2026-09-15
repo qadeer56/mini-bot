@@ -1,3 +1,5 @@
+console.log("🔥🔥🔥 QADEER NEW INDEX.JS LOADED 🔥🔥🔥");
+
 const {
     default: makeWASocket,
     useMultiFileAuthState,
