@@ -17,6 +17,10 @@ const {
     getBotReply
 } = require("./commands/bot");
 
+const { handleFunCommand } = require("./commands/fun");
+const { handleWeatherCommand } = require("./commands/weather");
+const { handleToolsCommand } = require("./commands/tools");
+
 // ==========================================
 // EXPRESS SERVER
 // ==========================================
@@ -505,6 +509,24 @@ async function startBot() {
                         await sock.sendMessage(jid, { text: answer });
                     }
                     return;
+                }
+
+                // FUN COMMANDS (.joke, .meme, .quote, .shayari, .fun)
+                if (text.startsWith(".")) {
+                    const handled = await handleFunCommand(sock, jid, text);
+                    if (handled) return;
+                }
+
+                // WEATHER COMMAND (.weather <city>)
+                if (lower === ".weather" || lower.startsWith(".weather ")) {
+                    const handled = await handleWeatherCommand(sock, jid, text);
+                    if (handled) return;
+                }
+
+                // EXTRA TOOLS COMMANDS (.calendar, .year, .day, .month)
+                if (text.startsWith(".")) {
+                    const handled = await handleToolsCommand(sock, jid, text);
+                    if (handled) return;
                 }
 
                 // UNKNOWN COMMAND
