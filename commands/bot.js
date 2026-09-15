@@ -2,7 +2,7 @@
 // QADEER AI BOT - BOT REPLY SYSTEM
 // ==========================================
 
-const botReplies = require("../data/botreplies");
+const { botReplies } = require("../data/botReplies");
 
 // ==========================================
 // RECENT REPLIES
