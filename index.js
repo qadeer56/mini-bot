@@ -9,7 +9,7 @@ const express = require("express");
 const QRCode = require("qrcode");
 
 // ==========================================
-// BOT REPLY SYSTEM
+// COMMAND MODULES
 // ==========================================
 
 const {
@@ -22,7 +22,7 @@ const { handleWeatherCommand } = require("./commands/weather");
 const { handleToolsCommand } = require("./commands/tools");
 
 // ==========================================
-// EXPRESS SERVER
+// EXPRESS
 // ==========================================
 
 const app = express();
@@ -33,25 +33,24 @@ const PORT = process.env.PORT || 3000;
 // CONFIG
 // ==========================================
 
+// Railway Volume path
 const AUTH_FOLDER = "/data/auth_info";
 
+// Gemini
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-// Correct Active Gemini Model
-const GEMINI_MODEL = "gemini-3.5-flash";
+// Current Gemini model
+const GEMINI_MODEL = "gemini-3.8-flash";
 
 // ==========================================
-// GLOBAL VARIABLES
+// GLOBAL STATE
 // ==========================================
 
+let sock = null;
 let currentQR = null;
 let isConnected = false;
-let sock = null;
 
-// ==========================================
-// AUTOCHAT MEMORY
-// ==========================================
-
+// Groups where AutoChat is enabled
 const autoChatGroups = new Set();
 
 // ==========================================
@@ -77,7 +76,7 @@ function getMenu() {
 • .ping
 • .owner
 
-🤖 GEMINI AI
+🤖 AI
 
 • .ai <question>
 • .ask <question>
@@ -87,9 +86,10 @@ function getMenu() {
 • .autochat on
 • .autochat off
 
-🤖 AUTO BOT REPLY
+🤖 BOT REPLY
 
-Group mein:
+Group mein bolo:
+
 • bot
 • oye bot
 • hey bot
@@ -106,6 +106,14 @@ Group mein:
 
 • .time
 • .date
+• .day
+• .month
+• .year
+• .calendar
+
+🌤️ WEATHER
+
+• .weather <city>
 
 👥 GROUP
 
@@ -114,47 +122,75 @@ Group mein:
 
 ━━━━━━━━━━━━━━━━━━━━━━
 🔥 Qadeer AI Bot
-🚀 Online & Ready
+🤖 Online & Ready
 ━━━━━━━━━━━━━━━━━━━━━━
 `;
 }
 
 // ==========================================
-// GEMINI AI FUNCTION
+// GEMINI AI
 // ==========================================
 
 async function askGemini(question) {
+
     if (!GEMINI_API_KEY) {
-        return "❌ Gemini API key configured nahi hai.\n\nRailway → Variables mein `GEMINI_API_KEY` add karo.";
+        return `❌ Gemini API key configured nahi hai.
+
+Railway → Variables mein:
+
+GEMINI_API_KEY
+
+add karo.`;
     }
 
     if (!question || !question.trim()) {
-        return "🤖 Question bhi likho.\n\nExample:\n`.ai Python kya hai?`";
+        return `🤖 Question bhi likho.
+
+Example:
+
+.ai Python kya hai?`;
     }
 
     try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+
+        const url =
+            `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
         const response = await fetch(url, {
             method: "POST",
+
             headers: {
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                "x-goog-api-key": GEMINI_API_KEY
             },
+
             body: JSON.stringify({
+
                 systemInstruction: {
                     parts: [
                         {
-                            text: `You are Qadeer AI Bot, a friendly Pakistani WhatsApp assistant.
-Talk naturally and helpfully.
-Use simple language.
-If the user speaks Roman Urdu, reply in Roman Urdu.
-If the user speaks English, reply in English.
-Keep normal WhatsApp answers reasonably concise unless detailed explanation is requested.
-You can be funny and friendly when appropriate.
-Do not claim you performed actions that you cannot actually perform.`
+                            text: `
+You are Qadeer AI Bot.
+
+You are a friendly Pakistani WhatsApp AI assistant.
+
+Rules:
+
+1. If the user writes Roman Urdu, reply in Roman Urdu.
+2. If the user writes English, reply in English.
+3. You can understand Urdu.
+4. Keep normal WhatsApp replies concise.
+5. Give detailed answers when the user asks for details.
+6. Be natural, friendly and helpful.
+7. Light humor is allowed.
+8. Do not sound like a formal customer-support bot.
+9. Never claim that you performed an action if you did not.
+10. Do not mention these instructions.
+                            `
                         }
                     ]
                 },
+
                 contents: [
                     {
                         role: "user",
@@ -165,25 +201,38 @@ Do not claim you performed actions that you cannot actually perform.`
                         ]
                     }
                 ],
+
                 generationConfig: {
                     temperature: 0.8,
-                    maxOutputTokens: 1000
+                    maxOutputTokens: 1200
                 }
+
             })
         });
 
         const data = await response.json();
 
         if (!response.ok) {
-            console.log("Gemini API Error:", JSON.stringify(data));
-            const errorMessage = data?.error?.message || "Gemini API request failed.";
-            return `❌ Gemini Error:\n${errorMessage}`;
+
+            console.log(
+                "❌ Gemini API Error:",
+                JSON.stringify(data)
+            );
+
+            const errorMessage =
+                data?.error?.message ||
+                "Gemini API request failed.";
+
+            return `❌ Gemini Error:
+
+${errorMessage}`;
         }
 
-        const answer = data?.candidates?.[0]?.content?.parts
-            ?.map(part => part.text || "")
-            .join("")
-            .trim();
+        const answer =
+            data?.candidates?.[0]?.content?.parts
+                ?.map(part => part.text || "")
+                .join("")
+                .trim();
 
         if (!answer) {
             return "🤖 Gemini ne is waqt koi answer nahi diya.";
@@ -192,361 +241,1043 @@ Do not claim you performed actions that you cannot actually perform.`
         return answer;
 
     } catch (error) {
-        console.log("❌ Gemini Request Error:", error.message);
-        return "❌ Gemini se connection nahi ho saka. Thori der baad dobara try karo.";
+
+        console.log(
+            "❌ Gemini Request Error:",
+            error.message
+        );
+
+        return `❌ Gemini se connection nahi ho saka.
+
+Thori der baad dobara try karo.`;
     }
 }
 
 // ==========================================
-// AUTOCHAT PROMPT
+// AUTOCHAT AI
 // ==========================================
 
-async function autoChatReply(userText, groupJid) {
+async function autoChatReply(userText) {
+
     const prompt = `
-You are Qadeer AI Bot chatting naturally in a WhatsApp group.
-Someone in the group said: "${userText}"
+You are Qadeer AI Bot inside a WhatsApp group.
+
+A group member said:
+
+"${userText}"
+
 Reply naturally to that message.
+
 Rules:
-- Roman Urdu if the message is Roman Urdu.
-- English if the message is English.
-- Keep it conversational.
-- Don't say you are an AI unless relevant.
-- Don't repeat the user's whole message.
-- Usually keep it short.
-- You can use light humor.
-- Don't be excessively formal.
+
+- Roman Urdu message ho to Roman Urdu mein reply karo.
+- English message ho to English mein reply karo.
+- Short natural WhatsApp reply do.
+- Zaroorat par light humor use karo.
+- Boring formal answer mat do.
+- User ka pura message repeat mat karo.
+- Har message ko serious question mat samjho.
+- Kabhi funny, friendly, casual ya slightly teasing response de sakte ho.
 `;
+
     return await askGemini(prompt);
 }
 
 // ==========================================
-// WEB SERVER
+// WEB PAGE
 // ==========================================
 
 app.get("/", async (req, res) => {
+
     if (isConnected) {
+
         return res.send(`
 <!DOCTYPE html>
+
 <html>
+
 <head>
+
 <title>Qadeer AI Bot</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<meta
+name="viewport"
+content="width=device-width, initial-scale=1.0"
+>
+
 <style>
-body { background:#111827; color:white; font-family:Arial; display:flex; justify-content:center; align-items:center; min-height:100vh; margin:0; }
-.box { background:#1f2937; padding:40px; border-radius:20px; text-align:center; width:90%; max-width:450px; }
-.status { color:#22c55e; font-size:24px; font-weight:bold; }
-p { color:#d1d5db; }
+
+body {
+    background:#111827;
+    color:white;
+    font-family:Arial;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    min-height:100vh;
+    margin:0;
+}
+
+.box {
+    background:#1f2937;
+    padding:40px;
+    border-radius:20px;
+    text-align:center;
+    width:90%;
+    max-width:450px;
+}
+
+.status {
+    color:#22c55e;
+    font-size:24px;
+    font-weight:bold;
+}
+
+p {
+    color:#d1d5db;
+}
+
 </style>
+
 </head>
+
 <body>
+
 <div class="box">
-<div class="status">🟢 WhatsApp Connected</div>
-<p>🤖 Qadeer AI Bot is online</p>
+
+<div class="status">
+🟢 WhatsApp Connected
 </div>
+
+<p>
+🤖 Qadeer AI Bot is online
+</p>
+
+<p>
+🔥 Ready to receive messages
+</p>
+
+</div>
+
 </body>
+
 </html>
 `);
+
     }
 
     if (!currentQR) {
+
         return res.send(`
 <!DOCTYPE html>
+
 <html>
+
 <head>
+
 <title>Qadeer AI Bot</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<meta
+name="viewport"
+content="width=device-width, initial-scale=1.0"
+>
+
 <style>
-body { background:#111827; color:white; font-family:Arial; display:flex; justify-content:center; align-items:center; min-height:100vh; margin:0; }
-.box { background:#1f2937; padding:35px; border-radius:20px; text-align:center; }
+
+body {
+    background:#111827;
+    color:white;
+    font-family:Arial;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    min-height:100vh;
+    margin:0;
+}
+
+.box {
+    background:#1f2937;
+    padding:35px;
+    border-radius:20px;
+    text-align:center;
+}
+
 </style>
+
 </head>
+
 <body>
+
 <div class="box">
+
 <h1>🤖 Qadeer AI Bot</h1>
-<p>QR code generate ho raha hai...</p>
-<p>Page refresh karo.</p>
+
+<p>
+QR code generate ho raha hai...
+</p>
+
+<p>
+Page refresh karo.
+</p>
+
 </div>
+
 </body>
+
 </html>
 `);
+
     }
 
     try {
-        const qrImage = await QRCode.toDataURL(currentQR);
+
+        const qrImage =
+            await QRCode.toDataURL(currentQR);
+
         res.send(`
 <!DOCTYPE html>
+
 <html>
+
 <head>
-<title>Qadeer AI Bot - Login</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Qadeer AI Bot Login</title>
+
+<meta
+name="viewport"
+content="width=device-width, initial-scale=1.0"
+>
+
 <style>
-body { background:#111827; color:white; font-family:Arial; display:flex; justify-content:center; align-items:center; min-height:100vh; margin:0; padding:20px; }
-.box { background:#1f2937; padding:30px; border-radius:20px; text-align:center; width:100%; max-width:430px; }
-img { width:280px; max-width:90%; background:white; padding:10px; border-radius:12px; }
-.steps { text-align:left; margin-top:20px; line-height:1.8; color:#d1d5db; }
+
+body {
+    background:#111827;
+    color:white;
+    font-family:Arial;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    min-height:100vh;
+    margin:0;
+    padding:20px;
+}
+
+.box {
+    background:#1f2937;
+    padding:30px;
+    border-radius:20px;
+    text-align:center;
+    width:100%;
+    max-width:430px;
+}
+
+img {
+    width:280px;
+    max-width:90%;
+    background:white;
+    padding:10px;
+    border-radius:12px;
+}
+
+.steps {
+    text-align:left;
+    margin-top:20px;
+    line-height:1.8;
+    color:#d1d5db;
+}
+
 </style>
+
 </head>
+
 <body>
+
 <div class="box">
+
 <h1>🤖 Qadeer AI Bot</h1>
-<p>WhatsApp se QR scan karo</p>
+
+<p>
+WhatsApp se QR scan karo
+</p>
+
 <img src="${qrImage}" />
+
 <div class="steps">
-<b>📱 Steps:</b><br>
-1. WhatsApp open karo<br>
-2. Settings → Linked Devices<br>
-3. Link a Device<br>
+
+<b>📱 Steps:</b>
+
+<br>
+
+1. WhatsApp open karo
+
+<br>
+
+2. Settings → Linked Devices
+
+<br>
+
+3. Link a Device
+
+<br>
+
 4. QR scan karo
+
 </div>
+
 </div>
+
 </body>
+
 </html>
 `);
+
     } catch (error) {
-        console.log("QR Error:", error.message);
+
+        console.log(
+            "❌ QR Error:",
+            error.message
+        );
+
         res.send("QR generation error.");
+
     }
+
 });
 
 // ==========================================
-// START WEB SERVER
+// START SERVER
 // ==========================================
 
 app.listen(PORT, () => {
-    console.log(`🌐 Web server running on port ${PORT}`);
+
+    console.log(
+        `🌐 Web server running on port ${PORT}`
+    );
+
 });
 
 // ==========================================
-// START WHATSAPP BOT
+// START WHATSAPP
 // ==========================================
 
 async function startBot() {
+
     try {
-        console.log("🚀 Starting Qadeer AI Bot...");
-        console.log("📁 Auth folder:", AUTH_FOLDER);
+
+        console.log(
+            "🚀 Starting Qadeer AI Bot..."
+        );
+
+        console.log(
+            "📁 Auth folder:",
+            AUTH_FOLDER
+        );
 
         if (GEMINI_API_KEY) {
-            console.log("🟢 Gemini API key detected.");
+
+            console.log(
+                "🟢 Gemini API key detected."
+            );
+
         } else {
-            console.log("⚠️ GEMINI_API_KEY not found.");
+
+            console.log(
+                "⚠️ GEMINI_API_KEY not found."
+            );
+
         }
 
-        const { state, saveCreds } = await useMultiFileAuthState(AUTH_FOLDER);
+        const {
+            state,
+            saveCreds
+        } = await useMultiFileAuthState(
+            AUTH_FOLDER
+        );
 
         sock = makeWASocket({
+
             auth: state,
-            logger: P({ level: "silent" }),
-            browser: ["Qadeer AI Bot", "Chrome", "1.0.0"]
+
+            logger: P({
+                level: "silent"
+            }),
+
+            browser: [
+                "Qadeer AI Bot",
+                "Chrome",
+                "1.0.0"
+            ]
+
         });
 
-        sock.ev.on("creds.update", saveCreds);
+        sock.ev.on(
+            "creds.update",
+            saveCreds
+        );
 
-        sock.ev.on("connection.update", async (update) => {
-            const { connection, lastDisconnect, qr } = update;
+        // ==================================
+        // CONNECTION
+        // ==================================
 
-            if (qr) {
-                currentQR = qr;
-                isConnected = false;
-                console.log("📱 New QR generated.");
-            }
+        sock.ev.on(
+            "connection.update",
+            async (update) => {
 
-            if (connection === "open") {
-                isConnected = true;
-                currentQR = null;
-                console.log("================================");
-                console.log("🟢 WhatsApp Connected!");
-                console.log("🤖 Qadeer AI Bot ONLINE");
-                console.log("================================");
-            }
+                const {
+                    connection,
+                    lastDisconnect,
+                    qr
+                } = update;
 
-            if (connection === "close") {
-                isConnected = false;
-                currentQR = null;
-                const statusCode = lastDisconnect?.error?.output?.statusCode;
-                const reconnect = statusCode !== DisconnectReason.loggedOut;
+                if (qr) {
 
-                console.log("🔴 WhatsApp connection closed.");
-                if (reconnect) {
-                    console.log("🔄 Reconnecting...");
-                    setTimeout(startBot, 5000);
-                }
-            }
-        });
+                    currentQR = qr;
+                    isConnected = false;
 
-        sock.ev.on("messages.upsert", async ({ messages }) => {
-            try {
-                const msg = messages[0];
-                if (!msg || msg.key?.fromMe) return;
+                    console.log(
+                        "📱 New QR generated."
+                    );
 
-                const jid = msg.key.remoteJid;
-                if (jid === "status@broadcast") return;
-
-                const message = msg.message;
-                if (!message) return;
-
-                let text = "";
-                if (message.conversation) {
-                    text = message.conversation;
-                } else if (message.extendedTextMessage?.text) {
-                    text = message.extendedTextMessage.text;
                 }
 
-                text = text.trim();
-                if (!text) return;
+                if (connection === "open") {
 
-                const lower = text.toLowerCase();
-                const isGroup = jid.endsWith("@g.us");
+                    isConnected = true;
+                    currentQR = null;
 
-                console.log(`📩 ${text}`);
+                    console.log(
+                        "================================"
+                    );
 
-                // AUTOCHAT ON
-                if (isGroup && lower === ".autochat on") {
-                    autoChatGroups.add(jid);
-                    await sock.sendMessage(jid, {
-                        text: "🤖 AutoChat ON!\n\nAb group mein normal messages par main bhi conversation mein participate karunga. 😎🔥\n\nBand karne ke liye:\n`.autochat off`"
-                    });
-                    return;
+                    console.log(
+                        "🟢 WhatsApp Connected!"
+                    );
+
+                    console.log(
+                        "🤖 Qadeer AI Bot ONLINE"
+                    );
+
+                    console.log(
+                        "================================"
+                    );
+
                 }
 
-                // AUTOCHAT OFF
-                if (isGroup && lower === ".autochat off") {
-                    autoChatGroups.delete(jid);
-                    await sock.sendMessage(jid, {
-                        text: "🔴 AutoChat OFF!\n\nAb main normal group messages par automatically reply nahi karunga.\n\n`bot` bolo to meri normal bot-reply system phir bhi active rahegi. 🤖"
-                    });
-                    return;
-                }
+                if (connection === "close") {
 
-                // AUTO BOT REPLY
-                if (isGroup && !text.startsWith(".") && isBotMention(text)) {
-                    const reply = getBotReply(text);
-                    if (reply) {
-                        await sock.sendMessage(jid, { text: reply });
+                    isConnected = false;
+
+                    currentQR = null;
+
+                    const statusCode =
+                        lastDisconnect
+                            ?.error
+                            ?.output
+                            ?.statusCode;
+
+                    const reconnect =
+                        statusCode !==
+                        DisconnectReason.loggedOut;
+
+                    console.log(
+                        "🔴 WhatsApp connection closed."
+                    );
+
+                    if (reconnect) {
+
+                        console.log(
+                            "🔄 Reconnecting in 5 seconds..."
+                        );
+
+                        setTimeout(
+                            startBot,
+                            5000
+                        );
+
+                    } else {
+
+                        console.log(
+                            "⚠️ WhatsApp logged out."
+                        );
+
                     }
-                    return;
+
                 }
 
-                // .AI COMMAND
-                if (lower === ".ai" || lower.startsWith(".ai ")) {
-                    const question = text.slice(3).trim();
-                    if (!question) {
-                        await sock.sendMessage(jid, {
-                            text: "🤖 Question likho.\n\nExample:\n`.ai Python kya hai?`"
-                        });
+            }
+        );
+
+        // ==================================
+        // MESSAGES
+        // ==================================
+
+        sock.ev.on(
+            "messages.upsert",
+            async ({ messages }) => {
+
+                try {
+
+                    const msg = messages[0];
+
+                    if (!msg) return;
+
+                    if (msg.key?.fromMe) return;
+
+                    const jid =
+                        msg.key.remoteJid;
+
+                    if (!jid) return;
+
+                    if (
+                        jid ===
+                        "status@broadcast"
+                    ) return;
+
+                    const message =
+                        msg.message;
+
+                    if (!message) return;
+
+                    // --------------------------
+                    // GET TEXT
+                    // --------------------------
+
+                    let text = "";
+
+                    if (
+                        message.conversation
+                    ) {
+
+                        text =
+                            message.conversation;
+
+                    } else if (
+                        message
+                            .extendedTextMessage
+                            ?.text
+                    ) {
+
+                        text =
+                            message
+                                .extendedTextMessage
+                                .text;
+
+                    }
+
+                    text = text.trim();
+
+                    if (!text) return;
+
+                    const lower =
+                        text.toLowerCase();
+
+                    const isGroup =
+                        jid.endsWith("@g.us");
+
+                    console.log(
+                        `📩 ${jid}: ${text}`
+                    );
+
+                    // ==================================
+                    // AUTOCHAT ON
+                    // ==================================
+
+                    if (
+                        isGroup &&
+                        lower === ".autochat on"
+                    ) {
+
+                        autoChatGroups.add(jid);
+
+                        await sock.sendMessage(
+                            jid,
+                            {
+                                text:
+`🤖 AutoChat ON!
+
+Ab group ke normal messages mein main bhi participate karunga. 😎🔥
+
+Band karne ke liye:
+
+.autochat off`
+                            }
+                        );
+
                         return;
                     }
 
-                    await sock.sendMessage(jid, { text: "🤖 Gemini soch raha hai... ⏳" });
-                    const answer = await askGemini(question);
-                    await sock.sendMessage(jid, { text: answer });
-                    return;
-                }
+                    // ==================================
+                    // AUTOCHAT OFF
+                    // ==================================
 
-                // .ASK COMMAND
-                if (lower === ".ask" || lower.startsWith(".ask ")) {
-                    const question = text.slice(4).trim();
-                    if (!question) {
-                        await sock.sendMessage(jid, {
-                            text: "🧠 Question likho.\n\nExample:\n`.ask Pakistan ka capital kya hai?`"
-                        });
+                    if (
+                        isGroup &&
+                        lower === ".autochat off"
+                    ) {
+
+                        autoChatGroups.delete(jid);
+
+                        await sock.sendMessage(
+                            jid,
+                            {
+                                text:
+`🔴 AutoChat OFF!
+
+Ab main normal group messages par automatically reply nahi karunga.
+
+Bot ko directly bulane ke liye:
+
+bot`
+                            }
+                        );
+
                         return;
                     }
 
-                    await sock.sendMessage(jid, { text: "🧠 Gemini answer prepare kar raha hai... ⏳" });
-                    const answer = await askGemini(question);
-                    await sock.sendMessage(jid, { text: answer });
-                    return;
-                }
+                    // ==================================
+                    // MENU
+                    // ==================================
 
-                // MENU
-                if (lower === ".menu" || lower === "menu") {
-                    await sock.sendMessage(jid, { text: getMenu() });
-                    return;
-                }
+                    if (
+                        lower === ".menu" ||
+                        lower === "menu"
+                    ) {
 
-                // PING
-                if (lower === ".ping") {
-                    await sock.sendMessage(jid, { text: "🏓 Pong! Qadeer AI Bot zinda hai 😎🔥" });
-                    return;
-                }
+                        await sock.sendMessage(
+                            jid,
+                            {
+                                text: getMenu()
+                            }
+                        );
 
-                // HELLO
-                if (lower === "hello" || lower === "hi") {
-                    await sock.sendMessage(jid, { text: "😂 O bhai! Hello! Qadeer AI Bot online hai 😎🔥" });
-                    return;
-                }
-
-                // SALAM
-                if (lower === "salam" || lower === "assalamualaikum") {
-                    await sock.sendMessage(jid, { text: "Wa Alaikum Assalam ❤️🤖 Qadeer AI Bot hazir hai 😎" });
-                    return;
-                }
-
-                // OWNER
-                if (lower === ".owner") {
-                    await sock.sendMessage(jid, { text: "👑 Bot Owner: Qadeer\n🤖 Qadeer AI Bot" });
-                    return;
-                }
-
-                // TIME
-                if (lower === ".time") {
-                    const now = new Date();
-                    await sock.sendMessage(jid, { text: `🕐 Server Time:\n${now.toLocaleString()}` });
-                    return;
-                }
-
-                // DATE
-                if (lower === ".date") {
-                    const now = new Date();
-                    await sock.sendMessage(jid, { text: `📅 Date:\n${now.toDateString()}` });
-                    return;
-                }
-
-                // AUTOCHAT AI RESPONSE
-                if (isGroup && autoChatGroups.has(jid) && !text.startsWith(".")) {
-                    const answer = await autoChatReply(text, jid);
-                    if (answer) {
-                        await sock.sendMessage(jid, { text: answer });
+                        return;
                     }
-                    return;
+
+                    // ==================================
+                    // PING
+                    // ==================================
+
+                    if (
+                        lower === ".ping"
+                    ) {
+
+                        await sock.sendMessage(
+                            jid,
+                            {
+                                text:
+                                    "🏓 Pong! Qadeer AI Bot zinda hai 😎🔥"
+                            }
+                        );
+
+                        return;
+                    }
+
+                    // ==================================
+                    // HELLO
+                    // ==================================
+
+                    if (
+                        lower === "hello" ||
+                        lower === "hi"
+                    ) {
+
+                        await sock.sendMessage(
+                            jid,
+                            {
+                                text:
+                                    "😂 O bhai! Hello! Qadeer AI Bot online hai 😎🔥"
+                            }
+                        );
+
+                        return;
+                    }
+
+                    // ==================================
+                    // SALAM
+                    // ==================================
+
+                    if (
+                        lower === "salam" ||
+                        lower ===
+                        "assalamualaikum"
+                    ) {
+
+                        await sock.sendMessage(
+                            jid,
+                            {
+                                text:
+                                    "Wa Alaikum Assalam ❤️🤖 Qadeer AI Bot hazir hai 😎"
+                            }
+                        );
+
+                        return;
+                    }
+
+                    // ==================================
+                    // OWNER
+                    // ==================================
+
+                    if (
+                        lower === ".owner"
+                    ) {
+
+                        await sock.sendMessage(
+                            jid,
+                            {
+                                text:
+`👑 BOT OWNER
+
+Qadeer
+
+🤖 Qadeer AI Bot`
+                            }
+                        );
+
+                        return;
+                    }
+
+                    // ==================================
+                    // AI
+                    // ==================================
+
+                    if (
+                        lower === ".ai" ||
+                        lower.startsWith(".ai ")
+                    ) {
+
+                        const question =
+                            text
+                                .slice(3)
+                                .trim();
+
+                        if (!question) {
+
+                            await sock.sendMessage(
+                                jid,
+                                {
+                                    text:
+`🤖 Question likho.
+
+Example:
+
+.ai Python kya hai?`
+                                }
+                            );
+
+                            return;
+                        }
+
+                        await sock.sendMessage(
+                            jid,
+                            {
+                                text:
+                                    "🤖 Gemini soch raha hai... ⏳"
+                            }
+                        );
+
+                        const answer =
+                            await askGemini(
+                                question
+                            );
+
+                        await sock.sendMessage(
+                            jid,
+                            {
+                                text: answer
+                            }
+                        );
+
+                        return;
+                    }
+
+                    // ==================================
+                    // ASK
+                    // ==================================
+
+                    if (
+                        lower === ".ask" ||
+                        lower.startsWith(".ask ")
+                    ) {
+
+                        const question =
+                            text
+                                .slice(4)
+                                .trim();
+
+                        if (!question) {
+
+                            await sock.sendMessage(
+                                jid,
+                                {
+                                    text:
+`.ask ke baad question likho.
+
+Example:
+
+.ask Pakistan ka capital kya hai?`
+                                }
+                            );
+
+                            return;
+                        }
+
+                        await sock.sendMessage(
+                            jid,
+                            {
+                                text:
+                                    "🧠 Gemini answer prepare kar raha hai... ⏳"
+                            }
+                        );
+
+                        const answer =
+                            await askGemini(
+                                question
+                            );
+
+                        await sock.sendMessage(
+                            jid,
+                            {
+                                text: answer
+                            }
+                        );
+
+                        return;
+                    }
+
+                    // ==================================
+                    // TIME
+                    // ==================================
+
+                    if (
+                        lower === ".time"
+                    ) {
+
+                        const now =
+                            new Date();
+
+                        await sock.sendMessage(
+                            jid,
+                            {
+                                text:
+`🕐 Server Time:
+
+${now.toLocaleString(
+    "en-PK",
+    {
+        timeZone:
+            "Asia/Karachi"
+    }
+)}`
+                            }
+                        );
+
+                        return;
+                    }
+
+                    // ==================================
+                    // DATE
+                    // ==================================
+
+                    if (
+                        lower === ".date"
+                    ) {
+
+                        const now =
+                            new Date();
+
+                        await sock.sendMessage(
+                            jid,
+                            {
+                                text:
+`📅 Date:
+
+${now.toLocaleDateString(
+    "en-PK",
+    {
+        timeZone:
+            "Asia/Karachi",
+        weekday:
+            "long",
+        year:
+            "numeric",
+        month:
+            "long",
+        day:
+            "numeric"
+    }
+)}`
+                            }
+                        );
+
+                        return;
+                    }
+
+                    // ==================================
+                    // BOT MENTION
+                    // ==================================
+
+                    if (
+                        isGroup &&
+                        !text.startsWith(".") &&
+                        isBotMention(text)
+                    ) {
+
+                        const reply =
+                            getBotReply(text);
+
+                        if (reply) {
+
+                            await sock.sendMessage(
+                                jid,
+                                {
+                                    text: reply
+                                }
+                            );
+
+                        }
+
+                        return;
+                    }
+
+                    // ==================================
+                    // AUTOCHAT AI
+                    // ==================================
+
+                    if (
+                        isGroup &&
+                        autoChatGroups.has(jid) &&
+                        !text.startsWith(".")
+                    ) {
+
+                        const answer =
+                            await autoChatReply(
+                                text
+                            );
+
+                        if (answer) {
+
+                            await sock.sendMessage(
+                                jid,
+                                {
+                                    text: answer
+                                }
+                            );
+
+                        }
+
+                        return;
+                    }
+
+                    // ==================================
+                    // FUN
+                    // ==================================
+
+                    if (
+                        text.startsWith(".")
+                    ) {
+
+                        const handled =
+                            await handleFunCommand(
+                                sock,
+                                jid,
+                                text
+                            );
+
+                        if (handled) return;
+
+                    }
+
+                    // ==================================
+                    // WEATHER
+                    // ==================================
+
+                    if (
+                        lower === ".weather" ||
+                        lower.startsWith(
+                            ".weather "
+                        )
+                    ) {
+
+                        const handled =
+                            await handleWeatherCommand(
+                                sock,
+                                jid,
+                                text
+                            );
+
+                        if (handled) return;
+
+                    }
+
+                    // ==================================
+                    // TOOLS
+                    // ==================================
+
+                    if (
+                        text.startsWith(".")
+                    ) {
+
+                        const handled =
+                            await handleToolsCommand(
+                                sock,
+                                jid,
+                                text
+                            );
+
+                        if (handled) return;
+
+                    }
+
+                    // ==================================
+                    // UNKNOWN COMMAND
+                    // ==================================
+
+                    if (
+                        text.startsWith(".")
+                    ) {
+
+                        await sock.sendMessage(
+                            jid,
+                            {
+                                text:
+`❌ Ye command abhi available nahi hai.
+
+.menu likho aur available commands dekho. 🤖`
+                            }
+                        );
+
+                    }
+
+                } catch (error) {
+
+                    console.log(
+                        "❌ Message Error:",
+                        error.message
+                    );
+
                 }
 
-                // FUN COMMANDS (.joke, .meme, .quote, .shayari, .fun)
-                if (text.startsWith(".")) {
-                    const handled = await handleFunCommand(sock, jid, text);
-                    if (handled) return;
-                }
-
-                // WEATHER COMMAND (.weather <city>)
-                if (lower === ".weather" || lower.startsWith(".weather ")) {
-                    const handled = await handleWeatherCommand(sock, jid, text);
-                    if (handled) return;
-                }
-
-                // EXTRA TOOLS COMMANDS (.calendar, .year, .day, .month)
-                if (text.startsWith(".")) {
-                    const handled = await handleToolsCommand(sock, jid, text);
-                    if (handled) return;
-                }
-
-                // UNKNOWN COMMAND
-                if (text.startsWith(".")) {
-                    await sock.sendMessage(jid, {
-                        text: "❌ Ye command abhi available nahi hai.\n\n`.menu` likho aur available commands dekho. 🤖"
-                    });
-                    return;
-                }
-
-            } catch (error) {
-                console.log("❌ Message Error:", error.message);
             }
-        });
+        );
 
     } catch (error) {
-        console.log("❌ Startup Error:", error.message);
-        setTimeout(startBot, 5000);
+
+        console.log(
+            "❌ Startup Error:",
+            error.message
+        );
+
+        setTimeout(
+            startBot,
+            5000
+        );
+
     }
+
 }
 
-// START BOT
+// ==========================================
+// START
+// ==========================================
+
 startBot();
